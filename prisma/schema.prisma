@@ -1,0 +1,184 @@
+﻿datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  admin_secretary
+  signer
+  public_verifier
+
+  @@map("user_role")
+}
+
+enum DocumentStatus {
+  DRAFT
+  UPLOADED
+  READY
+  SIGNING
+  SIGNED
+  INVALID
+  REVOKED
+
+  @@map("document_status")
+}
+
+enum SigningRequestStatus {
+  PENDING
+  SIGNED
+  EXPIRED
+  CANCELLED
+
+  @@map("signing_request_status")
+}
+
+model Profile {
+  id          String   @id @db.Uuid
+  fullName    String   @map("full_name")
+  email       String   @unique
+  role        UserRole @default(signer)
+  position    String?
+  institution String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  documents        Document[]
+  signingKeys      SigningKey[]
+  signingRequests  SigningRequest[]
+  signatures       Signature[]
+  auditLogs        AuditLog[]
+
+  @@map("profiles")
+}
+
+model Document {
+  id                  String         @id @default(uuid()) @db.Uuid
+  ownerId             String         @map("owner_id") @db.Uuid
+  owner               Profile        @relation(fields: [ownerId], references: [id])
+  originalFilename    String         @map("original_filename")
+  mimeType            String         @map("mime_type")
+  fileSize            BigInt         @map("file_size")
+  sourceSha256        String         @map("source_sha256") @db.Char(64)
+  storageOriginalPath String         @map("storage_original_path")
+  storageSignedPath   String?        @map("storage_signed_path")
+  status              DocumentStatus @default(DRAFT)
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  signingRequests     SigningRequest[]
+  signatures          Signature[]
+  verificationRecords VerificationRecord[]
+  auditLogs           AuditLog[]
+
+  @@index([ownerId])
+  @@map("documents")
+}
+
+model SigningKey {
+  id                   String    @id @default(uuid()) @db.Uuid
+  ownerId              String    @map("owner_id") @db.Uuid
+  owner                Profile   @relation(fields: [ownerId], references: [id])
+  algorithm            String    @default("RSA")
+  keySize              Int       @default(2048) @map("key_size")
+  publicKeyPem         String    @map("public_key_pem")
+  publicKeyFingerprint String    @map("public_key_fingerprint") @db.Char(64)
+  encryptedPrivateKey  Bytes     @map("encrypted_private_key")
+  encryptionAlgorithm  String    @default("AES-256-GCM") @map("encryption_algorithm")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  rotatedAt            DateTime? @map("rotated_at")
+
+  signatures Signature[]
+
+  @@map("signing_keys")
+}
+
+model SigningRequest {
+  id         String               @id @default(uuid()) @db.Uuid
+  documentId String               @map("document_id") @db.Uuid
+  document   Document             @relation(fields: [documentId], references: [id])
+  signerId   String               @map("signer_id") @db.Uuid
+  signer     Profile              @relation(fields: [signerId], references: [id])
+  status     SigningRequestStatus @default(PENDING)
+  requestedAt DateTime            @default(now()) @map("requested_at")
+  signedAt   DateTime?            @map("signed_at")
+  expiresAt  DateTime             @map("expires_at")
+
+  signaturePositions SignaturePosition[]
+
+  @@index([documentId])
+  @@map("signing_requests")
+}
+
+model SignaturePosition {
+  id               String         @id @default(uuid()) @db.Uuid
+  signingRequestId String         @map("signing_request_id") @db.Uuid
+  signingRequest   SigningRequest @relation(fields: [signingRequestId], references: [id])
+  pageNumber       Int            @map("page_number")
+  x                Decimal
+  y                Decimal
+  width            Decimal
+  height           Decimal
+
+  @@map("signature_positions")
+}
+
+model Signature {
+  id                     String     @id @default(uuid()) @db.Uuid
+  documentId             String     @map("document_id") @db.Uuid
+  document               Document   @relation(fields: [documentId], references: [id])
+  signerId               String     @map("signer_id") @db.Uuid
+  signer                 Profile    @relation(fields: [signerId], references: [id])
+  signingKeyId           String     @map("signing_key_id") @db.Uuid
+  signingKey             SigningKey @relation(fields: [signingKeyId], references: [id])
+  algorithm              String     @default("RSA-PSS")
+  hashAlgorithm          String     @default("SHA-256") @map("hash_algorithm")
+  keyAlgorithm           String     @default("RSA-2048") @map("key_algorithm")
+  publicKeyFingerprint   String     @map("public_key_fingerprint") @db.Char(64)
+  signatureFingerprint   String     @map("signature_fingerprint") @db.Char(64)
+  signedPdfSha256        String     @map("signed_pdf_sha256") @db.Char(64)
+  signedAt               DateTime   @default(now()) @map("signed_at")
+  verificationTokenHash  String     @unique @map("verification_token_hash") @db.Char(64)
+  createdAt              DateTime   @default(now()) @map("created_at")
+
+  verificationRecords VerificationRecord[]
+
+  @@index([documentId])
+  @@map("signatures")
+}
+
+model VerificationRecord {
+  id           String    @id @default(uuid()) @db.Uuid
+  documentId   String    @map("document_id") @db.Uuid
+  document     Document  @relation(fields: [documentId], references: [id])
+  signatureId  String    @map("signature_id") @db.Uuid
+  signature    Signature @relation(fields: [signatureId], references: [id])
+  tokenHash    String    @unique @map("token_hash") @db.Char(64)
+  publicStatus Boolean   @default(true) @map("public_status")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("verification_records")
+}
+
+model AuditLog {
+  id                 BigInt   @id @default(autoincrement())
+  actorId            String?  @map("actor_id") @db.Uuid
+  actor              Profile? @relation(fields: [actorId], references: [id])
+  eventType          String   @map("event_type")
+  documentId         String?  @map("document_id") @db.Uuid
+  document           Document? @relation(fields: [documentId], references: [id])
+  signatureId        String?  @map("signature_id") @db.Uuid
+  ipHash             String?  @map("ip_hash") @db.Char(64)
+  userAgent          String?  @map("user_agent")
+  metadata           Json     @default("{}")
+  previousEventHash  String?  @map("previous_event_hash") @db.Char(64)
+  eventHash          String   @map("event_hash") @db.Char(64)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("audit_logs")
+}
