@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from app.api.keygen import router as keygen_router
+from app.api.sign import router as sign_router
+from app.api.verify import router as verify_router
 from app.security.auth import AuthMiddleware
 from app.security.logging import RequestLoggingMiddleware, configure_logging, log_event
 
@@ -40,6 +42,8 @@ app = FastAPI(
 app.add_middleware(AuthMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.include_router(keygen_router)
+app.include_router(sign_router)
+app.include_router(verify_router)
 
 
 @app.get("/health")

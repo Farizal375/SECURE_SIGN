@@ -38,8 +38,32 @@ px prisma init --datasource-provider postgresql (§4.2)
 - **Reason**: Prisma 5.22.0 validation rejected the file with "This line is invalid" while BOM was present.
 - **Impact**: None; schema content unchanged.
 
+## DEV-008: opencv test-only dep + QR render params (backend B4)
+- **PRD Requirement**: Test backend pytest (AC-06 QR ter-decode, §13); PRD tidak mengunci decoder QR maupun parameter render QR (box_size/border/error-correction).
+- **Actual**: Tambah `opencv-python-headless==4.12.0.88` (pinned) KHUSUS untuk decode QR di test; runtime signer tidak mengimpor cv2. Render QR: `ERROR_CORRECT_M`, `box_size=10`, `border=4` (didokumentasikan di `app/qr/generator.py`).
+- **Reason**: AC-06 butuh decode QR nyata; cv2 5.0.0.93 (terbaru) terbukti flaky/tidak stabil me-decode QR kami (hasil non-deterministik antar run), sedangkan 4.12.0 stabil di 3x run.
+- **Impact**: Satu dependensi ekstra hanya di venv signer; tidak dipakai kode produksi.
+
 ## DEV-007: PRD-UI §11a pending (frontend)
 - **PRD Requirement**: Answer all §11a questions before implementing steps 4+ of PRD-UI §16.
 - **Actual**: Frontend stopped at PRD-UI §16 step 3 (setup tokens, login, auth callback, AppShell, middleware complete; `tsc --noEmit` and `eslint` pass).
 - **Reason**: §11a questions not yet answered by user.
 - **Impact**: `documents/new`, `dashboard/`, `documents/`, `documents/[id]`, `sign/[signingRequestId]`, PDF source URL, uploadUrl mechanism, signed-PDF download remain blocked or empty-state until answers are recorded here.
+
+## DEV-009: PSS salt di container CMS + konvensi koordinat + pypdfium2 test (backend B5)
+- **PRD Requirement**: Salt PSS 32 byte (§8); koordinat `signature_field` (§10/§11 tidak menyebut origin sumbu-y); test render PDF (AC-05/AC-06).
+- **Actual**: (a) Raw PSS tetap salt-32 (B2, teruji). Salt di dalam container CMS/PKCS#7 mengikuti `prefer_pss` pyHanko (optimal) karena API-nya tidak memperbolehkan override — parameter salt tertanam di SignedData sehingga verifikasi tetap self-consistent (B7). (b) `y` diinterpretasi dari ATAS (konvensi PDF.js/react-pdf preview FR-05), dikonversi ke origin kiri-bawah PDF; rotasi halaman diabaikan (MVP). (c) Tambah `pypdfium2==5.13.0` (pinned) KHUSUS test render/parse PDF; runtime tidak memakainya.
+- **Reason**: Fail-closed + satu-satunya interpretasi yang konsisten dengan preview frontend; rotasi di luar cakupan MVP.
+- **Impact**: Frontend WAJIB kirim `y` dari atas; bila backend/frontend beda interpretasi, posisi signature cermin vertikal (mudah dideteksi visual, 3 baris untuk mengubah).
+
+## DEV-010: Perluasan skema /sign + perilaku /verify (backend B6)
+- **PRD Requirement**: Skema request/response §11; error codes signer tidak dirinci PRD.
+- **Actual**: (a) `POST /sign` = skema §11 + 7 field terkunci (`encrypted_private_key_base64`, `signer_name`, `signer_position`, `signer_institution`, `signed_at`, `verification_url`, `signature_id`) sesuai keputusan user; `key_id` hanya echo/korelasi (signer stateless, tanpa DB). (b) Extra field di root request DITOLAK (`extra=forbid`, 422) agar drift kontrak ketahuan. (c) Input invalid -> `422 INVALID_REQUEST`; `public_key_fingerprint` = null bila tanpa signature field. (d) Kerja CPU (sign/verify) via `anyio.to_thread` karena `PdfSigner.sign_pdf` sync memanggil `asyncio.run()` di dalamnya (nested-loop error bila di event loop) sekaligus agar tak block loop uvicorn.
+- **Reason**: Fail-closed; satu-satunya cara memenuhi FR-02/FR-03 + FR-06/FR-07 tanpa akses DB di signer.
+- **Impact**: Kontrak beku untuk frontend (lihat handoff B6); penambahan field butuh persetujuan user.
+
+## DEV-011: Semantik signature_valid + HTTP tamper (backend B7)
+- **PRD Requirement**: FR-09 boolean independen; FR-10 tamper -> documentIntegrity:false + signatureValid:false.
+- **Actual**: `signature_valid = pyHanko.valid AND pyHanko.intact` (pyHanko memisahkan keaslian CMS dari digest ByteRange; signature atas konten ter-tamper wajib false). Tamper di luar maupun di dalam /Contents -> HTTP tetap 200 + semua false (bukan 4xx); hanya non-PDF (magic bytes) -> 422.
+- **Reason**: Satu-satunya pemetaan yang memenuhi FR-10 tanpa melanggar independensi boolean FR-09 (qrValid/publicKeyMatch tetap wewenang web).
+- **Impact**: Frontend boleh mengandalkan HTTP 200 + boolean untuk semua kasus dokumen ter-parse.

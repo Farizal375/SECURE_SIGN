@@ -49,11 +49,11 @@ async def test_endpoint_proteksi_secret_salah_401():
 
 
 async def test_endpoint_proteksi_secret_benar_lolos_middleware():
-    # Route /sign belum ada -> yang penting BUKAN 401 (lolos auth, 404 dari router).
-    # CATATAN B6: saat /sign sudah ada, ubah ekspektasi ini jadi 422 untuk body kosong.
+    # /sign SUDAH ada (B6): body kosong {} lolos auth lalu 422 validasi pydantic.
+    # Poin test: status BUKAN 401 (middleware meloloskan secret benar).
     async with await _client() as c:
         r = await c.post("/sign", json={}, headers=HEADERS)
-    assert r.status_code != 401
+    assert r.status_code == 422
     assert r.headers.get("X-Request-ID")
 
 
