@@ -12,6 +12,7 @@ node_modules/
 *.key
 *.p12
 *.enc
+.gitignore
 
 # Python
 services/signer/.venv/

@@ -1,11 +1,11 @@
 # PRD-AGENT — SecureSign
-## Spesifikasi Teknis Eksekutabel untuk AI Coding Agent
+## Spesifikasi Teknis Eksekutabel 
 
 Dokumen ini adalah satu-satunya sumber kebenaran untuk implementasi. Tidak ada bagian naratif, tidak ada justifikasi desain, tidak ada materi untuk pembaca manusia. Setiap baris adalah instruksi yang harus dieksekusi persis seperti tertulis.
 
 ---
 
-## 1. Tujuan Sistem (Definisi, Bukan Cerita)
+## 1. Tujuan Sistem 
 
 Bangun aplikasi web dua-layanan bernama **SecureSign** yang:
 
