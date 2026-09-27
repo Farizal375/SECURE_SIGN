@@ -1,0 +1,44 @@
+{
+  "raw_pss_sign": {
+    "n": 30,
+    "min_ms": 0.421,
+    "max_ms": 1.327,
+    "mean_ms": 0.462,
+    "median_ms": 0.431,
+    "stddev_ms": 0.164
+  },
+  "raw_pss_verify": {
+    "n": 30,
+    "min_ms": 0.022,
+    "max_ms": 0.064,
+    "mean_ms": 0.025,
+    "median_ms": 0.023,
+    "stddev_ms": 0.008
+  },
+  "full_pdf_sign": {
+    "n": 30,
+    "min_ms": 107.557,
+    "max_ms": 134.594,
+    "mean_ms": 117.9,
+    "median_ms": 117.248,
+    "stddev_ms": 8.851
+  },
+  "full_pdf_verify": {
+    "n": 30,
+    "min_ms": 4.654,
+    "max_ms": 33.512,
+    "mean_ms": 15.0,
+    "median_ms": 6.546,
+    "stddev_ms": 11.304
+  },
+  "sizes": {
+    "raw_rsa_pss_signature_bytes": 256,
+    "public_key_der_bytes": 294,
+    "public_key_pem_bytes": 451,
+    "contents_bytes": 2235
+  },
+  "nfr": {
+    "raw_below_100ms": true,
+    "full_below_3s": true
+  }
+}

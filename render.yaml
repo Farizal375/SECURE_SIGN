@@ -1,0 +1,21 @@
+# Render Blueprint — SecureSign Signing Service (PRD §3, §14 langkah 15).
+# Web (Next.js) deploy terpisah via Vercel dan TIDAK didefinisikan di sini.
+# Cara pakai: Render Dashboard -> New -> Blueprint -> pilih repo ini.
+# Env production (sync: false) WAJIB diisi manual di dashboard Render
+# dengan NILAI BARU (jangan pakai ulang key dev lokal).
+
+services:
+  - type: web
+    name: securesign-signer
+    runtime: python
+    rootDir: services/signer
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PRIVATE_KEY_ENCRYPTION_KEY
+        sync: false
+      - key: SIGNER_SERVICE_SECRET
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.12.10
